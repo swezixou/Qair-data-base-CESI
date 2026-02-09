@@ -1,0 +1,109 @@
+-- 1. Liste de l'ensemble des agences  
+SELECT * FROM agence;  
+
+-- 2. Liste de l'ensemble du personnel technique de l'agence de Bordeaux
+
+SELECT p.*  
+
+FROM personnels p  
+
+JOIN agence a ON p.ID_Agence = a.ID_Agence  
+
+JOIN ville v ON a.ID_Ville = v.ID_Ville  
+
+WHERE v.nom_ville = 'Bordeaux' AND p.Poste = 'Agent technique';  
+
+-- 3. Nombre total de capteurs déployés
+SELECT COUNT(*) AS Nombre_Total_Capteurs FROM capteurs;  
+
+-- 4. Liste des rapports publiés entre 2018 et 2022
+SELECT * FROM rapports WHERE YEAR(date_du_Rapport_) BETWEEN 2018 AND 2022;  
+
+-- 5. Concentrations de CH4 (ppm) dans certaines régions en mai et juin 2023
+SELECT 
+    r.Nom_région,
+    d.date_de_relever,
+    d.quantite_de_gaz
+FROM Données  d
+JOIN Capteurs c ON d.ID_Capteurs = c.ID_Capteurs
+JOIN GAZ      g ON c.ID_Gaz      = g.ID_Gaz
+JOIN Agence   a ON c.ID_Agence   = a.ID_Agence
+JOIN Ville    v ON a.ID_Ville    = v.ID_Ville
+JOIN Région   r ON v.ID_Région   = r.ID_Région
+WHERE g.Nom_du_Gaz = 'Méthane'
+  AND r.Nom_région IN ('Île-de-France', 'Bretagne', 'Occitanie')
+  AND d.date_de_relever BETWEEN '2023-05-01' AND '2023-06-30';  
+
+-- 6. Noms des agents techniques maintenant des capteurs GESI
+SELECT DISTINCT p.Nom_du_personnel, p.Prenom_du_personnel  
+FROM personnels p  
+JOIN capteurs c ON p.ID_Personnel = c.ID_Personnel  
+JOIN gaz g ON c.ID_Gaz = g.ID_Gaz  
+JOIN type_gaz tg ON g.id_type_gaz = tg.id_type_gaz  
+WHERE p.Poste = 'Agent technique' AND tg.nom_type = 'GESI';  
+
+-- 7. Titres et dates des rapports sur CH4, ordre antichronologique
+SELECT Titre_du_Rapport, Date_du_Rapport_
+FROM rapports
+WHERE Titre_du_Rapport LIKE '%CH4%' OR Analyse LIKE '%CH4%'
+ORDER BY Date_du_Rapport_ DESC;
+
+-- 8. Mois de concentration minimale de HFC par région
+SELECT r.Nom_région, 
+       MONTH(d.date_de_relever) AS Mois, 
+       MIN(d.quantite_de_gaz) AS Concentration_min
+FROM données d
+JOIN capteurs c ON d.ID_Capteurs = c.ID_Capteurs
+JOIN gaz g ON c.ID_Gaz = g.ID_Gaz
+JOIN agence a ON c.ID_Agence = a.ID_Agence
+JOIN ville v ON a.ID_Ville = v.ID_Ville
+JOIN Région r ON v.ID_Région = r.ID_Région
+WHERE g.Formule = 'HFC'
+GROUP BY r.Nom_région, MONTH(d.date_de_relever);
+
+-- 9. Moyenne des concentrations par gaz en 2020 en Ile-de-France
+SELECT g.Nom_du_Gaz, AVG(d.quantite_de_gaz) AS Moyenne_ppm
+FROM données d
+JOIN capteurs c ON d.ID_Capteurs = c.ID_Capteurs
+JOIN gaz g ON c.ID_Gaz = g.ID_Gaz
+JOIN agence a ON c.ID_Agence = a.ID_Agence
+JOIN ville v ON a.ID_Ville = v.ID_Ville
+JOIN Région r ON v.ID_Région = r.ID_Région
+WHERE r.Nom_région = 'Ile-de-France' AND YEAR(d.date_de_relever) = 2020
+GROUP BY g.Nom_du_Gaz;
+
+-- 10. Taux de productivité agents admin de Toulouse
+SELECT 
+    p.Nom_du_personnel,
+    p.Prenom_du_personnel,
+    COUNT(r.ID_Rapport) / TIMESTAMPDIFF(MONTH, p.Date_de_prise_de_poste, NOW()) AS Taux_productivite_mensuel
+FROM personnels p
+JOIN agence a ON p.ID_Agence = a.ID_Agence
+JOIN ville v ON a.ID_Ville = v.ID_Ville
+JOIN rédige rd ON p.ID_Personnel = rd.ID_Personnel
+JOIN rapports r ON rd.ID_Rapport = r.ID_Rapport
+WHERE p.Poste = 'Agent administratif' AND v.nom_ville = 'Toulouse'
+GROUP BY p.ID_Personnel;
+
+-- 11. Rapports contenant un gaz donné (nom paramétrable)
+SELECT *
+FROM rapports r
+WHERE EXISTS (
+    SELECT 1
+    FROM regroupe rg
+    JOIN données d ON rg.ID_Données = d.ID_Données
+    JOIN capteurs c ON d.ID_Capteurs = c.ID_Capteurs
+    JOIN gaz g ON c.ID_Gaz = g.ID_Gaz
+    WHERE rg.ID_Rapport = r.ID_Rapport
+      AND g.Formule = 'HFC'  -- Remplace par n'importe quel gaz
+);
+
+-- 12. Régions avec plus de capteurs que de personnel
+SELECT r.Nom_région
+FROM Région r
+JOIN ville v ON r.ID_Région = v.ID_Région
+JOIN agence a ON v.ID_Ville = a.ID_Ville
+LEFT JOIN capteurs c ON a.ID_Agence = c.ID_Agence
+LEFT JOIN personnels p ON a.ID_Agence = p.ID_Agence
+GROUP BY r.ID_Région
+HAVING COUNT(DISTINCT c.ID_Capteurs) > COUNT(DISTINCT p.ID_Personnel);

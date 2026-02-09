@@ -1,0 +1,19 @@
+-- Crée l'utilisateur admin avec tous les privilèges
+CREATE USER 'admin_user'@'localhost' IDENTIFIED BY 'ADMIN1234';
+GRANT ALL PRIVILEGES ON *.* TO 'admin_user'@'localhost' WITH GRANT OPTION;
+
+-- Crée l'utilisateur readonly avec seulement les droits de lecture sur la base 'fix'
+CREATE USER 'readonly_user'@'localhost' IDENTIFIED BY 'USER1234';
+GRANT SELECT ON nom_de_la_db.* TO 'readonly_user'@'localhost';
+
+-- Appliquer les changements
+FLUSH PRIVILEGES;
+
+-- la connexion à la base de données
+
+mysql -u admin_user -p
+-- mot de passe : ADMIN1234
+
+mysql -u readonly_user -p
+-- mot de passe : USER1234
+
